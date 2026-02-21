@@ -28,6 +28,7 @@ with st.sidebar:
     period = st.selectbox("Period", ["1mo", "3mo", "6mo", "1y"], index=2)
     interval = st.selectbox("Interval", ["1d"], index=0)
     annotator_id = st.text_input("Annotator ID", value="anon")
+    use_live = st.checkbox("Use live feed (Alpaca CSV)", value=False)
     if st.button("Load data"):
         try:
             df = fetch_ticker(ticker, period=period, interval=interval)
@@ -36,9 +37,18 @@ with st.sidebar:
             st.error(f"Fetch failed: {e}")
             st.stop()
     else:
-        # try to load existing CSV if present
+        # if user requested live feed, look for alpaca CSV first
+        live_csv = DATA_DIR / f"alpaca_{ticker}_1min.csv"
         csv_path = DATA_DIR / f"{ticker}_{period}_{interval}.csv"
-        if csv_path.exists():
+
+        if use_live and live_csv.exists():
+            # load the live 1min-bars CSV (we'll resample to daily if you still want daily)
+            df = pd.read_csv(live_csv, parse_dates=["timestamp"])
+            # make the DataFrame look like yfinance format (index with datetime and OHLCV columns)
+            df = df.rename(columns={"timestamp": "Date", "open": "Open", "high": "High", "low": "Low", "close": "Close", "volume": "Volume"})
+            # set index and normalize to daily if your UI expects daily data.
+            df = df.set_index("Date").sort_index()
+        elif csv_path.exists():
             df = pd.read_csv(csv_path, index_col=0, parse_dates=True)
         else:
             df = None
@@ -51,6 +61,36 @@ if df is None:
 # compute features and suggested labels
 df = add_basic_features(df)
 suggested = auto_label(df)
+
+# --- Candlestick chart (Plotly) ---
+import plotly.graph_objects as go
+
+# prepare OHLC data for the selected range (show last 90 rows by default)
+plot_df = df.copy()
+plot_df = plot_df.reset_index().rename(columns={"index": "Date"})
+# Plotly expects datetimes without timezone
+plot_df["Date"] = pd.to_datetime(plot_df["Date"]).dt.tz_localize(None)
+
+fig = go.Figure(
+    data=[
+        go.Candlestick(
+            x=plot_df["Date"],
+            open=plot_df["Open"],
+            high=plot_df["High"],
+            low=plot_df["Low"],
+            close=plot_df["Close"],
+            name=ticker
+        )
+    ]
+)
+fig.update_layout(
+    xaxis_rangeslider_visible=False,
+    height=450,
+    margin=dict(l=40, r=20, t=30, b=30),
+    title=f"{ticker} - Candlestick"
+)
+
+st.plotly_chart(fig, use_container_width=True)
 
 # --- Date selector & row lookup (single unified block) ---
 st.subheader(f"{ticker} — Data & Annotation")
@@ -102,12 +142,21 @@ if st.button("Save annotation"):
         "note": note,
         "source_file": str(DATA_DIR / f"{ticker}_{period}_{interval}.csv")
     }
+
     fname = ANNOT_DIR / f"annotations_{ticker}.csv"
-    df_out = pd.DataFrame([out])
+
     if fname.exists():
-        df_out.to_csv(fname, mode="a", header=False, index=False)
+        existing = pd.read_csv(fname)
+
+        # Remove existing row for same date
+        existing = existing[existing["date"] != out["date"]]
+
+        # Append new row
+        updated = pd.concat([existing, pd.DataFrame([out])], ignore_index=True)
+        updated.to_csv(fname, index=False)
     else:
-        df_out.to_csv(fname, index=False)
+        pd.DataFrame([out]).to_csv(fname, index=False)
+
     st.success(f"Saved annotation to {fname.name}")
 
 # --- Show recent annotations for this ticker ---

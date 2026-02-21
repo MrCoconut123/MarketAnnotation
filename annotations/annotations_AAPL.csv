@@ -1,3 +1,5 @@
 ticker,date,trend,volatility,annotator_id,annotated_at,note,source_file
-AAPL,2026-02-20,uptrend,normal,anon,2026-02-20T23:56:09.584881,,C:\MarketAnnotator\data\AAPL_6mo_1d.csv
-AAPL,2026-02-20,uptrend,normal,anon,2026-02-20T23:57:19.422791,,C:\MarketAnnotator\data\AAPL_6mo_1d.csv
+AAPL,2026-02-20,uptrend,normal,anon,2026-02-21T01:50:05.380067,,C:\MarketAnnotator\data\AAPL_6mo_1d.csv
+AAPL,2026-02-19,uptrend,normal,anon,2026-02-21T01:50:13.487464,,C:\MarketAnnotator\data\AAPL_6mo_1d.csv
+AAPL,2026-02-18,uptrend,normal,anon,2026-02-21T01:50:16.981691,,C:\MarketAnnotator\data\AAPL_6mo_1d.csv
+AAPL,2026-02-17,uptrend,normal,anon,2026-02-21T01:50:21.859480,,C:\MarketAnnotator\data\AAPL_6mo_1d.csv
